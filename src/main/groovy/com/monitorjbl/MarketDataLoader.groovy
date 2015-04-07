@@ -5,12 +5,6 @@ import groovy.sql.Sql
 import groovy.util.logging.Slf4j
 
 import java.text.DecimalFormat
-import java.util.concurrent.AbstractExecutorService
-import java.util.concurrent.Callable
-import java.util.concurrent.ExecutorService
-import java.util.concurrent.Executors
-import java.util.concurrent.Semaphore
-import java.util.concurrent.TimeUnit
 
 @Slf4j
 class MarketDataLoader {
@@ -19,7 +13,8 @@ class MarketDataLoader {
   static final def bytesPerLine = 166L
 
   //mutable
-  private def loading = false
+  private def action
+  private def running = false
   private def totalLines = 0L
   private def lineCount = 0L
 
@@ -43,9 +38,10 @@ class MarketDataLoader {
   }
 
   def load(String dumpLocation) {
-    loading = true
+    running = true
     try {
       log.debug("Creating tables")
+      action = "Table"
       createTables()
 
       def time = System.currentTimeMillis()
@@ -55,6 +51,7 @@ class MarketDataLoader {
       totalLines = file.size() / bytesPerLine
 
       log.debug("Starting read (estimating ${numFmt.format(totalLines)} lines)")
+      action = "Load"
       def chunk = []
       file.eachLine {
         if (lineCount > 0 && lineCount % chunkSize == 0) {
@@ -74,12 +71,13 @@ class MarketDataLoader {
       log.debug("Read ${numFmt.format(lineCount)} lines")
 
       log.debug("Creating indexes")
+      action = "Index"
       createIndexes()
       log.debug("Load complete in ${(System.currentTimeMillis() - time) / 1000} seconds.")
     } catch (Exception e) {
       e.printStackTrace()
     } finally {
-      loading = false
+      running = false
     }
   }
 
@@ -87,8 +85,12 @@ class MarketDataLoader {
     return totalLines == 0 ? 0.0 : lineCount / totalLines
   }
 
-  def loading() {
-    return loading
+  def running() {
+    return running
+  }
+
+  def currentAction(){
+    return action
   }
 
   class Submission implements Runnable {

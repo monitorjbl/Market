@@ -2,34 +2,57 @@ package com.monitorjbl
 
 import groovy.sql.Sql
 import org.apache.commons.dbcp2.BasicDataSource
+import org.fusesource.jansi.AnsiConsole
 
 import java.text.DecimalFormat
 
+import static org.fusesource.jansi.Ansi.*;
+import static org.fusesource.jansi.Ansi.Color.*;
+
 class Main {
+  static {
+    AnsiConsole.systemInstall();
+  }
+
   def numFmt = new DecimalFormat("###")
   def threads = 20
   def sql
 
-  def loadData() {
+  def loadMarketData() {
     def mkt = new MarketDataLoader(sql, threads)
-    def started = false
     Thread.start {
-      started = true
       mkt.load('/Users/thundermoose/Downloads/2015-04-05.dump')
     }
 
-    while (!started)
-      Thread.sleep(10)
+    while (!mkt.running())
+      Thread.sleep(50)
 
-    while (mkt.loading()) {
-      println(numFmt.format(mkt.progress() * 100) + "%")
+    printImmediate(ansi().fg(GREEN).a("Loading market data").fg(WHITE).a("...0%"))
+    while (mkt.running() && ["Table", "Load"].contains(mkt.currentAction())) {
+      printImmediate('\r')
+      printImmediate(ansi().fg(GREEN).a("Loading market data").fg(WHITE).a("...${numFmt.format(mkt.progress() * 100)}%"))
       Thread.sleep(500)
     }
+    printImmediate('\r')
+    println(ansi().eraseLine().fg(GREEN).a("Loading market data").fg(WHITE).a("...done!"))
+
+    printImmediate(ansi().fg(GREEN).a("Generating indexes").fg(WHITE).a("..."))
+    while(mkt.running())
+      Thread.sleep(1000)
+    printImmediate('\r')
+    println(ansi().eraseLine().fg(GREEN).a("Generating indexes").fg(WHITE).a("...done!"))
   }
 
-  def generateViews(){
-    def generator = new ViewGenerator(sql, threads)
-    generator.generate()
+  def loadStaticData() {
+    printImmediate(ansi().fg(GREEN).a("Loading static data").fg(WHITE).a("..."))
+    new StaticDataLoader(sql).load()
+    println(ansi().fg(WHITE).a("done!"))
+  }
+
+  def generateViews() {
+    printImmediate(ansi().fg(GREEN).a("Generating views").fg(WHITE).a("..."))
+    new ViewGenerator(sql, threads).generate()
+    println(ansi().fg(WHITE).a("done!"))
   }
 
   def dbConnect() {
@@ -38,17 +61,48 @@ class Main {
     ds.setUsername("root");
     ds.setPassword("");
     ds.setUrl("jdbc:mysql://localhost:3306/market");
-    ds.setMinIdle(5);
-    ds.setMaxIdle(20);
-    ds.setMaxTotal(20)
+    ds.setMinIdle(1);
+    ds.setMaxIdle(threads);
+    ds.setMaxTotal(threads)
     ds.setMaxOpenPreparedStatements(180);
     sql = new Sql(ds)
   }
 
+  def printImmediate(Object val) {
+    System.out.print(val)
+    System.out.flush()
+  }
+
+  def splash() {
+    println(
+        "" +
+            "-------------------\n" +
+            "| EVE Market Data |\n" +
+            "-------------------"
+    );
+  }
+
   public static void main(String[] args) {
     def main = new Main()
+    main.splash()
     main.dbConnect()
-    main.loadData()
-    main.generateViews()
+
+    if (args.contains("help")) {
+      println("HELP!")
+    } else if (args.contains("all")) {
+      main.loadStaticData()
+      main.loadMarketData()
+      main.generateViews()
+    } else {
+      if (args.contains("static")) {
+        main.loadStaticData()
+      }
+      if (args.contains("load")) {
+        main.loadMarketData()
+      }
+      if (args.contains("views")) {
+        main.generateViews()
+      }
+    }
   }
 }
