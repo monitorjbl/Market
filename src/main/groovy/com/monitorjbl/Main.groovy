@@ -37,7 +37,7 @@ class Main {
     println(ansi().eraseLine().fg(GREEN).a("Loading market data").fg(WHITE).a("...done!"))
 
     printImmediate(ansi().fg(GREEN).a("Generating indexes").fg(WHITE).a("..."))
-    while(mkt.running())
+    while (mkt.running())
       Thread.sleep(1000)
     printImmediate('\r')
     println(ansi().eraseLine().fg(GREEN).a("Generating indexes").fg(WHITE).a("...done!"))
@@ -88,7 +88,11 @@ class Main {
     main.dbConnect()
 
     if (args.contains("help")) {
-      println("HELP!")
+      println("Usage information")
+      println(ansi().fg(GREEN).a("\tstatic\t").fg(WHITE).a("Loads static content into database"))
+      println(ansi().fg(GREEN).a("\tmarket\t").fg(WHITE).a("Loads EVE-Central data into database"))
+      println(ansi().fg(GREEN).a("\tviews\t").fg(WHITE).a("Generates aggregated views for querying"))
+      println(ansi().fg(GREEN).a("\tall\t").fg(WHITE).a("Runs all commands to fully populate database"))
     } else if (args.contains("all")) {
       main.loadStaticData()
       main.loadMarketData()
@@ -97,7 +101,7 @@ class Main {
       if (args.contains("static")) {
         main.loadStaticData()
       }
-      if (args.contains("load")) {
+      if (args.contains("market")) {
         main.loadMarketData()
       }
       if (args.contains("views")) {
