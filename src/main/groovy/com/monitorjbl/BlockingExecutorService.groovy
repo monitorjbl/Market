@@ -10,9 +10,9 @@ class BlockingExecutorService extends AbstractExecutorService {
   private final ExecutorService executor;
   private final Semaphore blockExecution;
 
-  public BlockingExecutorService(int nTreads, int queueSize) {
+  public BlockingExecutorService(int nTreads, int queueSize = -1) {
     this.executor = Executors.newFixedThreadPool(nTreads);
-    blockExecution = new Semaphore(queueSize);
+    blockExecution = queueSize > 0 ? new Semaphore(queueSize) : null;
   }
 
   @Override
@@ -42,13 +42,17 @@ class BlockingExecutorService extends AbstractExecutorService {
 
   @Override
   public void execute(Runnable command) {
-    blockExecution.acquireUninterruptibly();
+    if (blockExecution != null) {
+      blockExecution.acquireUninterruptibly();
+    }
     executor.execute(new Runnable() {
       public void run() {
         try {
           command.run();
         } finally {
-          blockExecution.release();
+          if (blockExecution != null) {
+            blockExecution.release();
+          }
         }
       }
     })

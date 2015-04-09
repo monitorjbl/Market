@@ -15,13 +15,13 @@ class Main {
   }
 
   def numFmt = new DecimalFormat("###")
-  def threads = 20
+  def threads = 50
   def sql
 
   def loadMarketData() {
     def mkt = new MarketDataLoader(sql, threads)
     Thread.start {
-      mkt.load('/Users/thundermoose/Downloads/2015-04-05.dump')
+      mkt.load('./dump.csv')
     }
 
     while (!mkt.running())
@@ -37,10 +37,16 @@ class Main {
     println(ansi().eraseLine().fg(GREEN).a("Loading market data").fg(WHITE).a("...done!"))
 
     printImmediate(ansi().fg(GREEN).a("Generating indexes").fg(WHITE).a("..."))
-    while (mkt.running())
+    while (mkt.running() && mkt.currentAction() == 'Index')
       Thread.sleep(1000)
     printImmediate('\r')
     println(ansi().eraseLine().fg(GREEN).a("Generating indexes").fg(WHITE).a("...done!"))
+
+    printImmediate(ansi().fg(GREEN).a("Removing duplicate orders").fg(WHITE).a("..."))
+    while (mkt.running() && mkt.currentAction() == 'Deduplication')
+      Thread.sleep(1000)
+    printImmediate('\r')
+    println(ansi().eraseLine().fg(GREEN).a("Removing duplicate orders").fg(WHITE).a("...done!"))
   }
 
   def loadStaticData() {

@@ -3,6 +3,8 @@ package com.monitorjbl
 import groovy.sql.Sql
 import groovy.util.logging.Slf4j
 
+import java.util.concurrent.TimeUnit
+
 import static com.monitorjbl.Utils.loadResource
 
 @Slf4j
@@ -17,8 +19,20 @@ class ViewGenerator {
 
   def createTables() {
     sql.execute("drop table if exists profit_mv")
-    sql.execute("create table profit_mv(type_id INTEGER, region_id BIGINT, system_id INTEGER, " +
-        "buy float, sell float, buy_volume bigint, sell_volume bigint)")
+    sql.execute("""
+    create table profit_mv(
+        type_id INTEGER,
+        region_id BIGINT,
+        system_id INTEGER,
+        avg_buy float,
+        min_buy float,
+        max_buy float,
+        avg_sell float,
+        min_sell float,
+        max_sell float,
+        buy_volume bigint,
+        sell_volume bigint)
+    """)
   }
 
   def createIndexes() {
@@ -44,13 +58,14 @@ class ViewGenerator {
   def loadProfitView() {
     //thread by loading per system
     def pool = new BlockingExecutorService(threads, threads * 10)
-    def q = loadResource("profit.sql").text
-    sql.rows("select distinct region_id, system_id from orders").each { row ->
+    def q = loadResource("profit_view.sql").text
+    sql.rows("select distinct system_id from orders").each { row ->
       pool.execute({
-        sql.executeUpdate(q, [row.region_id, row.system_id, row.region_id, row.system_id])
+        sql.executeUpdate(q, [row.system_id, row.system_id])
         log.trace("Loaded sytem ${row.system_id}")
       })
     }
     pool.shutdown()
+    pool.awaitTermination(10, TimeUnit.MINUTES)
   }
 }
